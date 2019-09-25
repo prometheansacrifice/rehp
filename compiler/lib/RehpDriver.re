@@ -535,6 +535,26 @@ let coloring_js = (languageProvided, (rehp, linkinfos)) => {
   (rehp, linkinfos);
 };
 
+let coloring_wasm = (languageProvided, (rehp, linkinfos)) => {
+  let t = Timer.make();
+  if (times()) {
+    Format.eprintf("Start Coloring...@.");
+  };
+  let traverse = new Rehp_traverse.free;
+  let rehp = traverse#program(rehp);
+  let free = traverse#get_free_name;
+  /*
+   * TODO: Add the identifiers from the linker/runtime.
+   */
+  VarPrinter.add_reserved(StringSet.elements(free));
+  VarPrinter.add_reserved(StringSet.elements(languageProvided));
+  let rehp = Js_assign.program(rehp);
+  if (times()) {
+    Format.eprintf("  coloring: %a@.", Timer.print, t);
+  };
+  (rehp, linkinfos);
+};
+
 let coloring_php = (languageProvided, (rehp, linkinfos)) => {
   let t = Timer.make();
   if (times()) {
@@ -579,6 +599,40 @@ let output_js =
     ~custom_header,
     ~source_map?,
     jsWithRuntime,
+  );
+  if (times()) {
+    Format.eprintf("  write: %a@.", Timer.print, t);
+  };
+};
+
+let output_wasm =
+    (formatter, ~custom_header, ~source_map=?, (), (rehp, linkinfos)) => {
+  let wasm = Wasm_from_rehp.from_rehp(rehp);
+  let wasmWithRuntime =
+    /* switch (linkinfos) { */
+    /* | None => js */
+    /* | Some(linkinfos) => */
+    /*   let {Linker.runtime_code, always_required_codes} = */
+    /*     Linker.link(linkinfos); */
+    /*   List.flatten( */
+    /*     List.rev([ */
+    /*       js, */
+    /*       runtime_code, */
+    /*       ...List.map(~f=ar => ar.Linker.program, always_required_codes), */
+    /*     ]), */
+    /*   ); */
+    /* }; */
+    wasm;
+  let t = Timer.make();
+  if (times()) {
+    Format.eprintf("Start Writing file...@.");
+  };
+  header(~custom_header, formatter);
+  Wasm_output_impl.program(
+    formatter,
+    ~custom_header,
+    ~source_map?,
+    wasmWithRuntime,
   );
   if (times()) {
     Format.eprintf("  write: %a@.", Timer.print, t);
@@ -714,6 +768,19 @@ let pack_js = rehp => {
   rehp;
 };
 
+let pack_wasm = rehp => {
+  let t = Timer.make();
+  if (times()) {
+    Format.eprintf("Start Optimizing rehp...@.");
+  };
+  let rehp = pack(rehp);
+  let rehp = post_pack_optimizations(rehp);
+  if (times()) {
+    Format.eprintf("  optimizing: %a@.", Timer.print, t);
+  };
+  rehp;
+};
+
 let pack_php = rehp => {
   let t = Timer.make();
   if (times()) {
@@ -775,6 +842,13 @@ let f =
         coloring_js(Reserved.provided_js),
         check(Reserved.provided_js),
         output_js,
+      )
+    | Wasm => (
+        (x => x),
+        pack_wasm,
+        coloring_wasm(Reserved.provided_wasm),
+        check(Reserved.provided_wasm),
+        output_wasm,
       )
     };
 
