@@ -43,6 +43,7 @@ type t =
   ; fs_files : string list
   ; fs_output : string option
   ; fs_external : bool
+  ; pp_rehp : bool
   ; backend : Backend.t option }
 
 let options =
@@ -161,6 +162,10 @@ let options =
       & opt (some string) None
       & info ["ofs"] ~docs:filesystem_section ~docv:"FILE" ~doc)
   in
+  let pp_rehp =
+    let doc = "Pretty print rehp" in
+    Arg.(value & flag & info ["pp_rehp"] ~docs:"Pretty printers" ~doc)
+  in
   let backend =
     let doc = "Configure the backend to compile to." in
     let backend = RehpDriver.backends in
@@ -182,6 +187,7 @@ let options =
       fs_output
       backend
       fs_external
+      pp_rehp
       nocmis
       profile
       noruntime
@@ -266,6 +272,7 @@ let options =
       ; fs_files
       ; fs_output
       ; backend
+      ; pp_rehp
       ; fs_external
       ; nocmis
       ; output_file
@@ -287,6 +294,7 @@ let options =
       $ fs_output
       $ backend
       $ fs_external
+      $ pp_rehp
       $ nocmis
       $ profile
       $ noruntime
